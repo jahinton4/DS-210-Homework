@@ -1,0 +1,130 @@
+---
+title: "HW 03 - Legos"
+author: "Jeannie Hinton"
+date:  "2/23/23"
+output: 
+  html_document: 
+    theme: cerulean
+---
+
+This homework assignment reviews some of the data wrangling skills we have been working on the past several weeks.
+
+# Packages
+
+In this assignment we will work with the `tidyverse` as usual:
+
+```{r load-package, message = FALSE}
+library(tidyverse)
+```
+
+## Lego sales
+
+The data set `lego_sales` contains simulated lego set purchases in the U.S., based on actual prices, for the year 2018. The data set is called `lego_sales` and you can load it using the following code:
+```{r load-data}
+load(file = "lego_sales.rda")
+```
+Each row in the data set represents a lego set purchase.  The variables in this data set are as follows:
+
+**first_name**:  first name of customer
+
+**last_name**:  last name of customer
+
+**age**:  age of customer
+
+**phone_number**:  phone number of customer
+
+**set_id**:  ID of lego set purchased
+
+**number**:  item number of lego set purchased
+
+**theme**:  theme of lego set purchased
+
+**subtheme**:  sub-theme of lego set purchased
+
+**year**:  year of purchase
+
+**name**:  name of lego set purchased
+
+**pieces**:  number of pieces of legos in set purchased
+
+**us_price**:  price of set purchased, in U.S. dollars
+
+**image_url**:  image url of lego set purchased
+
+**quantity**:  quantity of lego sets purchased
+
+
+Answer the following questions using pipelines. For each question, state your answer in a sentence, e.g. "The first three common names of purchasers are ...".
+
+1. What are the three most common first names of purchasers?
+```{r common purchasers}
+lego_sales %>% 
+  count(first_name) %>% 
+  arrange(desc(n))
+```
+**The first three common names of purchasers are Jackson, Jacob, and Joseph.**
+2. What are the three most common themes of lego sets purchased?
+```{r common themes}
+lego_sales %>% 
+  count(theme) %>% 
+  arrange(desc(n))
+```
+**The three most common themes are Star Wars, Nexo Knights, and Mixels.**
+
+3. Among the most common themes of lego sets purchased, what is the most common 
+subtheme?  *Hint:*  use your answer from question 2 to filter the data.
+```{r common sub themes}
+lego_sales %>% 
+  filter(theme == "Star Wars" | theme == "Nexo Knights" | theme == "Gear") %>% 
+  count(subtheme) %>% 
+  arrange(desc(n))
+```
+**The most common sub themes are Ulitimate, The Force Awakens, and Buildable Figures.**
+
+4. Create a new variable called `age_group` and group the ages into the 
+following categories: "18 and under", "19 - 25", "26 - 35", "36 - 50", "51 and over".  *Hint:* Use the `case_when()` function: [case-when-doc](https://www.rdocumentation.org/packages/dplyr/versions/0.7.8/topics/case_when)
+
+
+```{r new age grp var}
+lego_sales <- lego_sales %>% 
+  mutate(age_group = case_when(
+    age <= 18 ~ "18 and under", 
+    age >= 19 & age <= 25 ~ "19 - 25", 
+    age >= 26 & age <= 35 ~ "26 - 35", 
+    age >= 36 & age <= 50 ~ "36 - 50",
+    age >= 51 ~ "51 and over"))
+```
+
+5. Which age group has purchased the highest total number of lego sets? *Hint:* some purchases are for more than one lego set, so it is not sufficient to just count the number of observations in each age category.
+```{r most purchasing age group}
+lego_sales %>% 
+  group_by(age_group) %>% 
+  summarize(most_purchasing = sum(quantity)) %>% 
+  arrange(desc(most_purchasing))
+```
+**The 36-50 years old is the age group with the most set purchases.**
+
+6. Which age group has spent the most money on legos?
+```{r most money spent age group}
+lego_sales %>% 
+  group_by(age_group) %>% 
+  summarize(most_money_spent = sum(us_price)) %>% 
+  arrange(desc(most_money_spent))
+```
+**The 36-50 years old is the age group with the most money spent on lego purchases.**
+
+7. Come up with a question you want to answer using these data, and write it down. 
+Then, create a data visualization that answers the question, and explain how 
+your visualization answers the question.
+
+**Of the top five most popular lego set themes, what is the distribution of pieces look like for those themes?**
+```{r}
+lego_sales %>%
+  filter(theme == "Star Wars" | theme == "Nexo Knights" |  theme == "Mixels" |
+         theme == "City" |  theme == "Friends") %>% 
+ggplot(aes(x = theme, y = pieces)) +
+geom_boxplot(fill = "lightblue")
+```
+**First, I think it is important to note that Mixels are very small sets typically making just one small character of some sort. This explains why the boxplot for Mixels looks more like a line than a traditional boxplot. However, the remaining themes of lego sets have much more traditional boxplot configuration. The Star Wars sets typically have the most amouunts of pieces as seen by it having the higher median amount compared to the other themes. The Star Wars theme also has the highest overall piece count compared to the other top five themes, as seen in the really high outlier at just over 2000 pieces. The theme with the next highest piece count is the Nexo Knights with almost 1250 pieces. It is interesting to see that the middle 50% of sets for every set, except the Mixels, have a piece count ranging from about 100 pieces to about 375 pieces. Star Wars' middle 50% had a little bit of a larger middle 50% with it ranging from around 100 pieces to 400 pieces.**
+
+

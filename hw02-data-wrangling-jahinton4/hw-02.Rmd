@@ -1,0 +1,256 @@
+---
+title: "HW-02 - Data Wrangling and Visualization"
+author: "Jeannie Hinton"
+date: "2/11/2023"
+output: 
+  html_document: 
+    theme: cerulean
+---
+
+# Part I:  College Graduation Rates
+The data set `colleges.csv` contains information about 1991 graduation rates for the top 200 American universities and colleges determined by "Money" magazine. 
+
+1.  The `colleges.csv` data set can be found in the `/data` folder.  Read in the data and add a new variable that estimates the tuition for each college in the year 2000.  The tuition inflation rate is about 8% per year, which means that the cost of college doubles every nine years.  Create another variable that calculates the tuition *increase* from 1991 to 2000 for each college.  Create a visualization for the distribution of the *increase* in tuition during this 9 year period by region.  Be sure to include appropriate labels and titles in your plot.  Discuss how the estimated tuition increase varies by region.
+```{r load-data-and-packages}
+colleges <- read.csv("data/colleges.csv")
+library(tidyverse)
+```
+
+```{r checking-dataset, eval = FALSE}
+slice(colleges)
+```
+```{r new_vars}
+ colleges %>%
+   mutate(tuition_2000 = ((1.08 ^ 9) * tuition_1991)) %>%
+   mutate(tuition_increase = tuition_2000 - tuition_1991) %>% 
+   ggplot(mapping = aes(y = tuition_increase)) +   
+      geom_boxplot(fill = "light blue") +
+      facet_wrap(~ region) +
+      labs(title = "College Tution Increase from 1991 to 2000 by Region", y = "Tuition Increase") +
+      theme(axis.text.x=element_blank(),
+            axis.ticks.x=element_blank())
+```
+**After creating the boxplots for tuiton increase by region, one can see that in the Midwest, Northeast, and the West, there were many colleges who had very large tuition increases from 1991 to 2000 as seen in the high outlier dots above the boxes in the boxplots. As far as median tuition increases are concerned, the West had the highest median tuition increase of about 7,500 dollars. The remaining regions had median tuition increases below 7,500 dollars. The Midwest has an interesting distribution as the majority of colleges had tuition increases of around 6000 dollars or higher as seen in how the 25th percentile is around 6000 dollars and the majority of the remaining college tuition increases for the Midwest.The South, however has the lowest tuition increase of all the regions with a really low outlier of around 1000 dolllars.**
+
+2.  Create a suitable visualization to show the distribution of college type by region.  Be sure to use appropriate labels and titles in your plot.  Describe in a few sentences what you can conclude from your plot.   
+```{r bar_college_by_region}
+ggplot(data = colleges, aes(x = college_type)) +
+  geom_bar(aes(fill = college_type)) +
+  facet_wrap(~ region) +
+  labs(title = "College Types by Region",
+       x = "College Type",
+       y = "Count") +
+  theme(legend.position = "none")
+```
+**From this distribution of college_type by region, it appears that in the Northeast and the Central regions, there are about the same amount of private and public colleges. It also appears that there are significantly more colleges in the Northeast than in the rest of the regions. As far as the other regions are concerned, the Southwest and Midwest have more private colleges than public colleges. In contrast, the West and the South have many more public colleges than private colleges.**
+
+3.  
+a) What is the minimum expected private college tuition in the Northeast region in the year 2000?  
+b) Which region and type of college has the highest median graduation rate?
+c) In the South, what percentage of colleges are private?
+Be sure to include the code that you used to answer each of these questions.
+```{r just-checking-answers}
+colleges %>% 
+  mutate(tuition_2000 = ((1.08 ^ 9) * tuition_1991)) %>%
+  filter(college_type == "private", region == "South")
+```
+```{r 3-a--min-priv-tuition}
+colleges %>% 
+  mutate(tuition_2000 = ((1.08 ^ 9) * tuition_1991)) %>%
+  filter(college_type == "private", region == "Northeast") %>% 
+  summarize(min(tuition_2000))
+
+```
+```{r 3-b-region-and-type}
+colleges %>% 
+  group_by(region, college_type) %>% 
+  summarize(median_grad_rate = median(graduation_rate)) %>% 
+  arrange(desc(median_grad_rate))
+```
+```{r 3-c-colleges-in-south}
+colleges %>% 
+  filter(region == "South") %>% 
+  count(college_type) %>% 
+  mutate(prop = n / sum(n))
+```
+**a) The minimum private college tuition in the Northeast in 2000 is $599.70.**
+**b) Private colleges in the West have the highest median graduation rate at 81%.**
+**c) In the South, 41.46% of colleges are private.**
+
+4.  Choose a numerical and a categorical variable and construct side-by-side box plots depicting the relationship between the two variables (you must choose a pair of variables that is different than the pair of variables you plotted in Question 1).  Describe in a few sentences what you can conclude from your plot.
+**graduation rate by college_type**
+
+```{r side-by-side-boxplots-grad_rate-by-college_type}
+ggplot(data = colleges, mapping = aes(x = college_type, y = graduation_rate)) +
+  geom_boxplot(fill = "light blue")
+```
+**From these side-by-side boxplots, one can see that the median graduation rate for private colleges is greater than the median graduation rate for public colleges. I wonder if this difference in median graduation rates is due to public colleges generally having more students and thus, probably have more students who start college but do not graduate. It could be that students who attend private colleges tend to be of higher academic standing or personal determination to reach graduation. Interestingly, it appears that there are two public college outliers. One outlier has a very high graduation rate, and I wish I knew how to find that exact college's name from the dataset and research how it has such a high graduation rate. In contrast, the other extreme outlier for public colleges is the really low outlier. I wonder if this is an error in data entry or if there really is a public college with that low of a graduation rate.**
+
+# Part II: Nobel Laureates
+
+In January 2017, Buzzfeed published an article on why Nobel laureates show immigration is so important for American science.
+You can read the article [here](https://www.buzzfeednews.com/article/peteraldhous/immigration-and-science).
+In the article they show that while most living Nobel laureates in the sciences are based in the US, many of them were born in other countries.
+This is one reason why scientific leaders say that immigration is vital for progress.
+In this part of the assignment, we will work with the data from this article to recreate some of their visualizations as well as explore new questions.
+
+The dataset for this assignment can be found as a CSv (comma separated values) file in the `data` folder of your repository.
+
+
+The variable descriptions are as follows:
+
+-   `id`: ID number
+-   `firstname`: First name of laureate
+-   `surname`: Surname
+-   `year`: Year prize won
+-   `category`: Category of prize
+-   `affiliation`: Affiliation of laureate
+-   `city`: City of laureate in prize year
+-   `country`: Country of laureate in prize year
+-   `born_date`: Birth date of laureate
+-   `died_date`: Death date of laureate
+-   `gender`: Gender of laureate
+-   `born_city`: City where laureate was born
+-   `born_country`: Country where laureate was born
+-   `born_country_code`: Code of country where laureate was born
+-   `died_city`: City where laureate died
+-   `died_country`: Country where laureate died
+-   `died_country_code`: Code of country where laureate died
+-   `overall_motivation`: Overall motivation for recognition
+-   `share`: Number of other winners award is shared with
+-   `motivation`: Motivation for recognition
+
+In a few cases the name of the city/country changed after laureate was given (e.g. in 1975 Bosnia and Herzegovina was called the Socialist Federative Republic of Yugoslavia).
+In these cases the variables below reflect a different name than their counterparts without the suffix \`\_original\`.
+
+-   `born_country_original`: Original country where laureate was born
+-   `born_city_original`: Original city where laureate was born
+-   `died_country_original`: Original country where laureate died
+-   `died_city_original`: Original city where laureate died
+-   `city_original`: Original city where laureate lived at the time of winning the award
+-   `country_original`: Original country where laureate lived at the time of winning the award
+
+
+5.  Read in the dataset `nobel.csv`, which can be found in the `data` folder in your repository. How many observations and how many variables are in the dataset?  **Use inline code to answer this question.**
+```{r read-in-csv}
+nobel <- read_csv("data/nobel.csv")
+```
+```r 935 rows and 26 columns```
+
+6.  There are some observations in this dataset that we will exclude from our analysis to match the Buzzfeed results.  Create a new data frame called `nobel_living` that only includes observations (or laureates) such that:
+
+-   `country` is available (that is, the value of `country` is not `NA`)
+-   the laureates are people as opposed to organizations (organizations are denoted with `"org"` as their `gender`)
+-   the laureates are still alive (that is, their `died_date` is `NA`).  
+
+```{r}
+nobel_living <- nobel %>% 
+  filter(country != "NA", gender != "org", is.na(died_date))
+
+slice(nobel_living)
+```
+`confirmed 228 rows in nobel_living using slice funtion in code chunk above`
+
+Confirm that once you have filtered for these characteristics you are left with a data frame with 228 observations, once again using inline code.
+
+7.  According to Buzzfeed:  **Most living Nobel laureates were based in the US when they won their prizes**
+
+You will check to see if that claim is true.
+
+First, create a new variable to identify whether the laureate was in the US when they won their prize using the `mutate()` function.
+The following code mutates the `nobel_living` data frame by adding a new variable called `country_us`using an `if` statement.
+The first argument in the `if_else()` function we're using to write this if statement is the condition we're testing for.
+If `country` is equal to `"USA"`, we set `country_us` to `"USA"`.
+If not, we set the `country_us` to `"Other"`.
+
+
+```{r eval = TRUE}
+nobel_living <- nobel_living %>%
+  mutate(
+    country_us = if_else(country == "USA", "USA", "Other")
+  )
+
+slice(nobel_living)
+```
+
+Next, we will limit our analysis to only the following categories: Physics, Medicine, Chemistry, and Economics.
+
+```{r eval = TRUE}
+nobel_living_science <- nobel_living %>%
+  filter(category %in% c("Physics", "Medicine", "Chemistry", "Economics"))
+```
+
+For this exercise work with the `nobel_living_science` data frame created above.  Be sure to remove the `eval = FALSE` option in the two code chunks above.
+
+Create a faceted bar plot visualizing the relationship between the category of prize and whether the laureate was in the US when they won the nobel prize.
+    Interpret your visualization, and say a few words about whether the Buzzfeed claim **Most living Nobel laureates were based in the US when they won their prizes** is supported by the data.
+
+    -   Your visualization should be faceted by category.
+    -   For each facet you should have two bars, one for winners in the US and one for Other.
+    -   Flip the coordinates so the bars are horizontal, not vertical.
+    -   Give your visualization an appropriate title and make sure all axis labels are appropriate.
+    
+```{r faceted-bar-plot-in-USA-or-not}
+ggplot(data = nobel_living_science, mapping = aes(y = country_us, fill = country_us)) +
+  geom_bar() +
+  facet_wrap(~ category) +
+  labs(title = "Location of Where Nobel Prize Winners Were When They Won",
+       x = "Count", 
+       y = "Country")
+```
+
+**The barcharts reveal that for all scientific categories, winners of nobel prizes tend to be in the USA when they win as opposed to being in any other country when they win. In the field of Chemistry, the counts for where the nobel prize winners were when they won were much more evenly distributed than any of the other fields. Counts for the winners in the field of economics were the most unequally distributed for where they were when they won. For economics, 35 of the winners were in the USA when they won and 4 winners were in other countries. Even with considering the field of Chemistry where the counts are very similar, the BuzzFeed article was correct in its statement since every category had more winners in the USA when they won.**
+
+8.  Create a new variable called `born_country_us` in the `nobel_living_science` dataset that has the value `"USA"` if the laureate was born in the US, and `"Other"` otherwise.
+How many of the winners are born in the US?
+
+```{r new-var-born-country-us}
+nobel_living_science <- nobel_living_science %>% 
+  mutate(born_country_us = ifelse(born_country == "USA", "USA", "Other"))
+  
+
+slice(nobel_living_science)
+```
+**105 of the winners were born in the US.**
+
+9.  According to Buzzfeed:  **Of those US-based Nobel laureates, many were born in other countries**.
+
+Add another variable to your visualization from Exercise 7 that indicates whether the laureate was born in the US or not.
+    Based on your visualization, do the data appear to support Buzzfeed's claim that **Of those US-based Nobel laureates, many were born in other countries**?
+    Explain your reasoning in 1-2 sentences.
+```{r}
+ggplot(data = nobel_living_science, mapping = aes(y = country_us, fill = born_country_us)) +
+  geom_bar() +
+  facet_wrap(~ category) +
+  labs(title = "Location & Birth Place of Where US-Based Nobel Laureates Were When They Won",
+       x = "Count", 
+       y = "Location When They Win")
+```
+**BuzzFeed was wrong in saying that the US-based winners were born in other countries. The larger turquoise boxes within the bars for US-based winners suggest the majority of US-based winners were also born in the US. **
+
+  
+10. **Here's where those immigrant Nobelists were born**
+
+For this exercise work with the `nobel_living_science` data frame created previously.
+
+In a single pipeline, filter for laureates who won their prize in the US, but were born outside of the US, and then create a frequency table (with the `count()` function) for their birth country (`born_country`) and arrange the resulting data frame in descending order of number of observations for each country. Which country is the most common?
+
+```{r number-10}
+nobel_living_science %>% 
+  filter(country_us == "USA", born_country != "USA") %>% 
+  count(born_country) %>% 
+  arrange(desc(n))
+```
+**Germany and the UK are the most common countries for non-US birth countries for US-based winners.**
+
+## Grading
+
+In addition to accuracy of your answers to questions, your submission will be 
+evaluated for
+
+- coding style,
+- informatively named code chunks,
+- commit after each question (at a minimum, more commits ok),
+- informative commit messages,
+- document organization, and
+- quality of writing and grammar.

@@ -1,0 +1,229 @@
+---
+title: "HW04 - Sleeping Animals"
+author: "Jeannie Hinton"
+date: "4/10/23"
+output: 
+  html_document: 
+    theme: cerulean
+---
+
+Throughout the animal kingdom, animals require sleep, and there is extensive variation in the number of hours in a day that different animals sleep.  The data set called `SleepingAnimals.csv` contains information for more than 60 mammalian species, including the average number of hours per day of total sleep.
+
+# Packages
+
+We will use `tidyverse` and `broom` for this assignment.  If you decide to use any other packages, you should add them to the code chunk below.
+
+```{r load-packages, eval=TRUE, message=FALSE}
+library(tidyverse)
+library(broom)
+library(qqplotr)
+```
+
+```{r read-data, message = FALSE}
+animals <- read_csv("data/animals.csv")
+```
+
+# Exercises
+
+1.  The response variable we are interested in is the average number of hours per day of total sleep.  Create a visualization to examine the distribution of the total sleep variable and comment on what you find.
+```{r total sleep histogram}
+animals %>% 
+  drop_na(TotalSleep) %>% 
+  ggplot(aes(x = TotalSleep)) +
+  geom_histogram(binwidth = 2, color = "white") +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  labs(x = "Total Sleep", y = "Count", title = "Total Hours of Sleep for Animals")
+```
+```{r checking the mean}
+animals %>% 
+  drop_na(TotalSleep) %>% 
+  summarise(mean(TotalSleep))
+```
+
+The distribution for sleep appears unimodal and symmetric with the majority of observations falling between 9 and 11 hours of total sleep. The mean is around 10.533 hours which supports that this distribution does have most observations fall between 9 and 11 hours. 
+
+
+2.  Gestation is the mean number of days that females of these mammalian species carry their young before giving birth.  Visualize and describe the relationship between total sleep and gestation.
+
+```{r gestation histogram}
+animals %>% 
+  drop_na(Gestation) %>% 
+  ggplot(aes(x = Gestation)) +
+  geom_histogram(binwidth = 50, color = "white") +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  scale_x_continuous(breaks = seq(23, 700, 50)) +
+  labs(title = "Mean Gestation Periods for Animals", subtitle = "Gestation measured in days", y = "Count", x = "Gestation (days)" )
+```
+```{r checking for outliers}
+animals %>% 
+  drop_na(Gestation) %>% 
+  count(Gestation)
+```
+
+
+```{r checking value of outlier}
+animals %>% 
+  drop_na() %>% 
+  summarise(max(Gestation), min(TotalSleep), max(TotalSleep), min(Gestation))
+```
+
+
+```{r total sleep and gestation}
+animals %>% 
+  ggplot(aes(x = Gestation, y = TotalSleep)) +
+  geom_point() +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  scale_x_continuous(breaks = seq(20, 650, 50)) +
+  labs(title = "Gestation vs. Total Hours of Sleep", y = "Total Sleep (hours)", x = "Gestation (days)" )
+```
+
+Based on the scatterplot of Gestation and TotalSleep, it appears that the greater the mean number of gestation days, the lesser the hours of total sleep the animal was able to acquire. It appears that there is some sort of negative, and moderately strong linear relationship. However, a linear regression model will aid in seeing this relationship better. 
+
+3.  Fit a linear regression model to predict total sleep from gestation.  Write down what the resulting model, and update your visualization from Question 2 to add the fitted regression line plotted in a color other than black.
+
+```{r scatterplot with line}
+animals %>% 
+  ggplot(aes(x = Gestation, y = TotalSleep)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = FALSE) +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  scale_x_continuous(breaks = seq(20, 650, 50)) +
+  labs(title = "Gestation vs. Total Hours of Sleep", y = "Total Sleep (hours)", x = "Gestation (days)" )
+```
+```{r linear model}
+m_gest_sleep <- lm(TotalSleep ~ Gestation, data = animals)
+```
+
+```{r regression info}
+summary((m_gest_sleep))
+```
+
+```{r just playing with broom}
+glance(m_gest_sleep)
+```
+
+```{r augment process}
+m_gest_sleep_aug <- augment(m_gest_sleep)
+```
+
+```{r trying to fix fan shape}
+m_gest_sleep_aug_filter <- m_gest_sleep_aug %>% 
+  filter(Gestation != 624) 
+```
+
+```{r resdiual plot}
+ggplot(data = m_gest_sleep_aug, mapping = aes(x = .fitted, y = .resid)) +
+  geom_point(alpha = 0.5) +
+  geom_hline(yintercept = 0, color = "blue", lty = 2) +
+  labs(x = "Predicted Total Hours of Sleep", y = "Residuals")
+```
+
+
+4. Interpret the slope of the linear model from Question 3 in the context of this data.
+
+For each additional day of gestation, we expect to see about 1 minute and 12 seconds less of sleep. 
+
+5.  Determine the $R^2$ value for the model and interpret it in context of the data.
+
+The $R^2$ value is 0.3985728 which means that about 39.86% of the variation in total hours of sleep can be explained by the linear relationship between total hours of sleep and gestation period. Unfortunately, that means that approximately 60% of the variation in total hours of sleep can be explained by other lurking variables. 
+
+
+6.  List and check the model assumptions required for linear regression and comment on the extent to which gestational period is a good predictor of sleep hours.
+
+The first regression model assumption is that variables are related linearly. The scatterplot of Gestation vs. Total Hours of Sleep confirms that the two variables are linearly related. 
+
+The second regression model assumption is that the errors are normally distributed with a mean of zero. I checked this using a normal probability plot and the Shapiro Wilk test. The normal probability plot's tails were going off trend so I checked the p-value with the Shapiro Wilk test. The p-value from the Shapiro Wilk test was 0.1863 which is greater than 0.05 meaning the errors are normally distributed.  
+
+```{r normal prob plot}
+ggplot(m_gest_sleep_aug, aes(sample = .resid)) +
+  stat_qq_point(size = 2, color = "red") +
+  stat_qq_line(color = "green") +
+  xlab("Theoretical Quantiles") + ylab("Sample Quantiles")
+```
+
+```{r shapiro wilk test}
+shapiro.test(m_gest_sleep_aug$.resid)
+```
+
+The third regression model assumption is to check that the errors are independent of each other. To check this, I studied the Residual by Predicted plot. The plot had a fan shape pattern. Therefore, there was a violation of the independence assumption. 
+
+The fourth regression model assumption is to check for constant variances by looking at the Residual by predicted plot and again, there shouldn't be a fan shape. However, there was a fan shape and thus, the constant variance assumption is also violated.  
+
+7.  Remove the two outlier observations from the data set and estimate the linear regression model again.  Is there a significant change in the model after removing the outliers?
+
+```{r filter dataset}
+animals_filter <- animals %>% 
+  drop_na(Gestation) %>% 
+  filter(Gestation != 624) %>% 
+  filter(Gestation != 645) 
+```
+
+```{r new model with filter}
+m_filtered_gest_sleep <- lm(TotalSleep ~ Gestation, data = animals_filter)
+```
+
+```{r regression info for second model}
+summary((m_filtered_gest_sleep))
+augment(m_filtered_gest_sleep) 
+glance(m_filtered_gest_sleep)
+```
+There isn't a significant change in the first model compared to the second model that filters out the two high outliers in gestation. 
+
+8.  Using the model from Question 2 that includes the outliers, what does the p-value for the slope tell you?  Report a 95% confidence interval for the slope and comment on what it tells you.
+
+The p-value for the earlier model was 3.082794e-07. This p-value was less than 0.05 meaning that there is an association between gestation and total hours of sleep. The 95% confidence interval reveals that we are 95% confident that the actual slope of the regression line is between -0.0278417 and -0.01365648. This interval does not contain zero and therefore, the conclusion that there is an association between gestation and total hours of sleep still stands as valid. 
+```{r confidence interval}
+confint(m_gest_sleep)
+```
+
+
+9.  Calculate the average total sleep for an animal whose gestation period is 110 days (using your model from Question 2).  Do you trust your prediction?
+
+Using my equation from my first model, my prediction for average total sleep is about 11 hours. This makes more sense to me. 
+
+10.  The researchers who collected this data also calculated indices to represent exposure (1 meaning that the animal sleeps in a well-protected den, 5 meaning most exposure).  Create a new variable that recodes the exposure variable as follows:  values of 1, 2, or 3 of exposure are coded as "least exposed". Values of 4 or 5 are coded as "most exposed".  Visualize and describe the relationship between total sleep and your new exposure variable.  Does there appear to be an association between these two variables?
+
+```{r new variable}
+animals_filter_exposure <- animals_filter %>% 
+  mutate(new_Exposure = case_when(Exposure == 1 ~ "Least Exposed",
+                             Exposure == 2 ~ "Least Exposed",
+                             Exposure == 3 ~ "Least Exposed", 
+                             Exposure == 4 ~ "Most Exposed", 
+                             Exposure == 5 ~ "Most Exposed"))
+```
+
+```{r exposed vs. total sleep scatter}
+ggplot(animals_filter_exposure, aes(x = new_Exposure, y = TotalSleep)) + 
+  geom_boxplot() +
+  labs(x = "Exposure Level", y = "Average Total Sleep (hours)")
+```
+There is an association between Exposure Level and Average Total Sleep as seen in the different boxplots. If the boxplots looked the same, then there wouldn't be an association between the two variables.
+
+11. Next, fit a linear model to your data that can be used to predict total sleep from your new, recoded exposure variable from Question 10.  Write down the model and interpret the coefficients in context.
+
+```{r linear model for new exposure var}
+m_animal_exposure_11 <- lm(TotalSleep ~ new_Exposure, data = animals_filter_exposure)
+glance(m_animal_exposure_11)
+summary(m_animal_exposure_11)
+```
+$\hat{TotalSleep} = 12.067 - 5.274(newExposure)$
+
+When an animal is sleeping in a "least exposed" area, the average total hours of sleep the animal will get is about 12.067 hours. When an animal is sleeping in a "most exposed" area, the average total hours of sleep the animal will get is around 6.793 hours. 
+
+12.  Create a residual plot for you model in Question 11 and discuss what the plots tells you.
+
+After jittering the points in my residual plot, the residual plot appeared more random. Therefore, the model for exposure levels is a good model for predicting average total hours of sleep for animals. 
+
+```{r resdiual plot for new model}
+ggplot(data = m_animal_exposure_11, mapping = aes(x = new_Exposure, y = .resid)) +
+  geom_point(alpha = 0.5) +
+  geom_jitter() +
+  geom_hline(yintercept = 0, color = "blue", lty = 2) +
+  labs(x = "Exposure Level", y = "Residuals")
+```
+
+
